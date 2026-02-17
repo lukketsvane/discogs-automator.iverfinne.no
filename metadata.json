@@ -1,0 +1,7 @@
+{
+  "name": "CrateDigger AI",
+  "description": "Batch identify vinyl records using Gemini Vision and Web Search.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
