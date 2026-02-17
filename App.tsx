@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Loader2, Disc, Key, X, Plus, Check } from 'lucide-react';
 import Uploader from './components/Uploader';
 import VinylCard from './components/VinylCard';
 import RecordForm from './components/RecordForm';
-import { analyzeRecordImages } from './services/geminiService';
-import { UploadedFile, VinylRecord, DraftRecord } from './types';
+import AgentView from './components/AgentView';
+import { DiscogsAgent } from './services/geminiService';
+import { UploadedFile, VinylRecord, DraftRecord, AgentResponse } from './types';
 
 const App = () => {
   // Collection State
@@ -13,8 +14,15 @@ const App = () => {
   // Current Workflow State
   const [currentFiles, setCurrentFiles] = useState<UploadedFile[]>([]);
   const [draftRecord, setDraftRecord] = useState<DraftRecord | null>(null);
+  
+  // Agent State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [agentResponse, setAgentResponse] = useState<AgentResponse | null>(null);
+  const [showAgentView, setShowAgentView] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persistent Agent Instance
+  const agentRef = useRef<DiscogsAgent | null>(null);
 
   // Settings State
   const [showSettings, setShowSettings] = useState(false);
@@ -36,7 +44,7 @@ const App = () => {
     setShowSettings(false);
   };
 
-  const handleAnalyze = async () => {
+  const startAnalysis = async () => {
     if (currentFiles.length === 0) return;
     if (!apiKey) {
       setShowSettings(true);
@@ -44,19 +52,51 @@ const App = () => {
     }
 
     setIsAnalyzing(true);
+    setShowAgentView(true);
     setError(null);
     setDraftRecord(null);
+    setAgentResponse(null);
 
     try {
+      // Initialize new agent session
+      agentRef.current = new DiscogsAgent(apiKey);
+      
       const rawFiles = currentFiles.map(f => f.file);
-      const data = await analyzeRecordImages(rawFiles, apiKey);
-      setDraftRecord(data);
+      const response = await agentRef.current.startAnalysis(rawFiles);
+      
+      setAgentResponse(response);
+      
+      if (response.status === 'error') {
+        setError(response.error || "Unknown agent error");
+      }
+
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to analyze. Please check your API key.");
+      setError(err.message || "Failed to start analysis.");
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAgentReply = async (text?: string, file?: File) => {
+    if (!agentRef.current) return { status: 'error', logs: ['Agent lost session'] } as AgentResponse;
+    
+    setIsAnalyzing(true);
+    try {
+      const response = await agentRef.current.replyToAgent(text, file);
+      setAgentResponse(response); // Update logic handled in AgentView via prop effect
+      return response;
+    } catch (e: any) {
+      return { status: 'error', logs: ['Error: ' + e.message], error: e.message } as AgentResponse;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleAgentComplete = (record: DraftRecord) => {
+    // Transition from Agent View to Editor View
+    setDraftRecord(record);
+    setShowAgentView(false);
   };
 
   const handleSaveDraft = (record: VinylRecord) => {
@@ -64,10 +104,15 @@ const App = () => {
     // Reset workflow
     setDraftRecord(null);
     setCurrentFiles([]);
+    setAgentResponse(null);
+    setShowAgentView(false);
+    agentRef.current = null;
   };
 
   const handleCancelDraft = () => {
     setDraftRecord(null);
+    setShowAgentView(false);
+    setAgentResponse(null);
   };
 
   return (
@@ -95,7 +140,7 @@ const App = () => {
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-6 py-12 space-y-12">
         
-        {/* Editor Section (Shown when draft exists) */}
+        {/* Editor Section (Final Stage) */}
         {draftRecord && (
           <div className="space-y-4">
              <div className="flex items-center gap-2 text-white">
@@ -111,8 +156,18 @@ const App = () => {
           </div>
         )}
 
-        {/* Input Section (Hidden while editing draft) */}
-        {!draftRecord && (
+        {/* Agent View (Research Stage) */}
+        {showAgentView && !draftRecord && (
+          <AgentView 
+            initialResponse={agentResponse} 
+            onReply={handleAgentReply}
+            onComplete={handleAgentComplete}
+            isProcessing={isAnalyzing}
+          />
+        )}
+
+        {/* Input Section (Initial Stage) */}
+        {!draftRecord && !showAgentView && (
           <div className="space-y-6">
             <div className="space-y-1">
               <h2 className="text-white font-medium flex items-center gap-2">
@@ -130,19 +185,12 @@ const App = () => {
                   </div>
                )}
 
-               {isAnalyzing && (
-                  <div className="mt-6 flex items-center justify-center gap-3 text-zinc-400 text-sm">
-                     <Loader2 className="animate-spin" size={16} />
-                     <span>Analyzing pressing details...</span>
-                  </div>
-               )}
-
-               {!isAnalyzing && currentFiles.length > 0 && (
+               {currentFiles.length > 0 && (
                   <button 
-                    onClick={handleAnalyze}
-                    className="mt-6 w-full py-2.5 bg-white text-black font-medium text-sm rounded-lg hover:bg-zinc-200 transition-colors shadow-lg shadow-white/5"
+                    onClick={startAnalysis}
+                    className="mt-6 w-full py-2.5 bg-white text-black font-medium text-sm rounded-lg hover:bg-zinc-200 transition-colors shadow-lg shadow-white/5 flex justify-center items-center gap-2"
                   >
-                    Analyze Record
+                    Start Research Agent
                   </button>
                )}
             </div>
