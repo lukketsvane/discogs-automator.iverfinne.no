@@ -1,5 +1,5 @@
 {
-  "name": "CrateDigger AI",
+  "name": "discogs.iverfinne.no",
   "description": "Batch identify vinyl records using Gemini Vision and Web Search.",
   "requestFramePermissions": [
     "camera"

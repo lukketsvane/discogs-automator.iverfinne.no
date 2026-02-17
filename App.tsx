@@ -76,10 +76,7 @@ const App = () => {
       <nav className="border-b border-zinc-800 bg-black/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-white rounded-sm flex items-center justify-center">
-               <Layers className="text-black" size={12} />
-            </div>
-            <span className="font-semibold text-sm tracking-tight text-white">CrateDigger</span>
+            <span className="font-semibold text-sm tracking-tight text-white">discogs.iverfinne.no</span>
           </div>
           
           <div className="flex items-center gap-3">
@@ -121,9 +118,7 @@ const App = () => {
               <h2 className="text-white font-medium flex items-center gap-2">
                  <Plus size={16} /> Add to Collection
               </h2>
-              <p className="text-xs text-zinc-500">
-                Upload Front, Back, and Label photos. Gemini 3 Pro will identify the pressing.
-              </p>
+
             </div>
             
             <div className="bg-zinc-900/20 border border-zinc-800 rounded-xl p-6">
