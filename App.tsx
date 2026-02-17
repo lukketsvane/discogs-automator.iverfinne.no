@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Layers, Loader2, Sparkles, AlertCircle, Disc } from 'lucide-react';
 import Uploader from './components/Uploader';
 import VinylCard from './components/VinylCard';
 import { identifyVinyls } from './services/geminiService';
@@ -147,3 +147,16 @@ const App = () => {
                     </button>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {results.map((record) => (
+                        <VinylCard key={record.id} record={record} />
+                    ))}
+                </div>
+            </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default App;

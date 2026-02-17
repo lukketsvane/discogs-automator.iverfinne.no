@@ -11,6 +11,7 @@ export interface VinylRecord {
   description: string;
   genre?: string;
   confidenceScore: number; // 0-100
+  _originalIndex?: number;
 }
 
 export interface AnalysisResult {
