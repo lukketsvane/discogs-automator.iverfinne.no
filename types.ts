@@ -1,4 +1,55 @@
 
+// ─── Discogs User ─────────────────────────────────
+export interface DiscogsUser {
+  id: number;
+  username: string;
+  resource_url: string;
+  consumer_name: string;
+}
+
+export interface DiscogsProfile {
+  id: number;
+  username: string;
+  name: string;
+  avatar_url: string;
+  num_collection: number;
+  num_wantlist: number;
+  num_lists: number;
+  location: string;
+  profile: string;
+  registered: string;
+}
+
+// ─── Discogs Search ───────────────────────────────
+export interface DiscogsSearchResult {
+  id: number;
+  type: string;
+  title: string;
+  thumb: string;
+  cover_image: string;
+  uri: string;
+  country: string;
+  year: string;
+  format: string[];
+  label: string[];
+  catno: string;
+  community: {
+    have: number;
+    want: number;
+  };
+}
+
+export interface DiscogsSearchResponse {
+  results: DiscogsSearchResult[];
+  pagination: {
+    page: number;
+    pages: number;
+    per_page: number;
+    items: number;
+  };
+}
+
+// ─── Records ──────────────────────────────────────
 export interface VinylRecord {
   id: string;
   artist: string;
@@ -10,9 +61,10 @@ export interface VinylRecord {
   condition?: string;
   estimatedPrice: string;
   discogsUrl: string;
+  discogsReleaseId?: number;
   description: string;
   format?: string;
-  images: string[]; // Array of base64 strings
+  images: string[];
   dateAdded: number;
 }
 
@@ -26,17 +78,21 @@ export interface DraftRecord {
   format: string;
   estimatedPrice: string;
   discogsUrl: string;
+  discogsReleaseId?: number;
   description: string;
-  validationWarning?: string; // If front/back missing or unclear
+  validationWarning?: string;
   isValid: boolean;
 }
 
+// ─── Files ────────────────────────────────────────
 export interface UploadedFile {
   id: string;
   file: File;
   preview: string;
+  imgbbUrl?: string;
 }
 
+// ─── Agent ────────────────────────────────────────
 export interface QuestionOption {
   label: string;
   value: string;
@@ -50,9 +106,11 @@ export interface AgentQuestion {
 }
 
 export interface AgentResponse {
-  logs: string[]; // Steps the agent took (e.g., "Detected text...", "Searching web...")
+  logs: string[];
   status: 'complete' | 'clarification_needed' | 'error';
   question?: AgentQuestion;
   record?: DraftRecord;
   error?: string;
 }
+
+export type AppView = 'home' | 'agent' | 'review';

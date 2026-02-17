@@ -2,33 +2,73 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>discogs.iverfinne.no</title>
+    <link rel="manifest" href="/manifest.json" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'Inter', sans-serif; background-color: #09090b; color: #e4e4e7; }
-      /* Custom scrollbar for webkit */
-      ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #18181b; }
-      ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+      * { -webkit-tap-highlight-color: transparent; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        background-color: #000;
+        color: #ededed;
+        overscroll-behavior: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      html { scroll-behavior: smooth; }
+
+      /* Safe areas */
+      .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+      .safe-x { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+      /* Animations */
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+      @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 20px 2px rgba(255,255,255,0.05); } }
+      @keyframes typingDot { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+
+      .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+      .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+      .animate-slide-down { animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+      .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+
+      .shimmer {
+        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+      }
+
+      /* iOS-like press feedback */
+      .press-scale { transition: transform 0.15s ease; }
+      .press-scale:active { transform: scale(0.97); }
+
+      /* Terminal cursor blink */
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+      .cursor-blink { animation: blink 1s step-end infinite; }
+
+      /* Typing dots */
+      .typing-dot { animation: typingDot 1.4s infinite; }
+      .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+      .typing-dot:nth-child(3) { animation-delay: 0.4s; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.574.0",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4"
-  }
-}
-</script>
-</head>
-  <body>
+  </head>
+  <body class="safe-top safe-bottom safe-x">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
