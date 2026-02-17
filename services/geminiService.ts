@@ -16,10 +16,9 @@ const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-export const identifyVinyls = async (files: File[]): Promise<VinylRecord[]> => {
-  const apiKey = process.env.API_KEY;
+export const identifyVinyls = async (files: File[], apiKey: string): Promise<VinylRecord[]> => {
   if (!apiKey) {
-    throw new Error("API_KEY is missing from environment variables.");
+    throw new Error("Gemini API Key is missing. Please set it in the settings.");
   }
 
   const ai = new GoogleGenAI({ apiKey });

@@ -88,7 +88,7 @@ const Uploader: React.FC<UploaderProps> = ({ files, setFiles, isAnalyzing }) => 
           if (blob && files.length < MAX_BATCH_SIZE) {
             const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
             handleFiles({ 0: file, length: 1, item: () => file } as unknown as FileList);
-            stopCamera(); // Close after one shot for simplicity, or keep open for batch
+            stopCamera(); 
           }
         }, 'image/jpeg', 0.8);
       }
@@ -98,7 +98,6 @@ const Uploader: React.FC<UploaderProps> = ({ files, setFiles, isAnalyzing }) => 
   const removeFile = (id: string) => {
     setFiles(prev => {
       const newFiles = prev.filter(f => f.id !== id);
-      // Cleanup object URL to prevent memory leaks
       const removed = prev.find(f => f.id === id);
       if (removed) URL.revokeObjectURL(removed.preview);
       return newFiles;
@@ -106,7 +105,7 @@ const Uploader: React.FC<UploaderProps> = ({ files, setFiles, isAnalyzing }) => 
   };
 
   return (
-    <div className="w-full mb-8">
+    <div className="w-full">
       {/* Camera Modal Overlay */}
       {isCameraOpen && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4">
@@ -118,7 +117,7 @@ const Uploader: React.FC<UploaderProps> = ({ files, setFiles, isAnalyzing }) => 
               <button onClick={stopCamera} className="p-4 rounded-full bg-zinc-800 text-white hover:bg-zinc-700 transition">
                 <X size={24} />
               </button>
-              <button onClick={capturePhoto} className="p-5 rounded-full bg-amber-500 text-black hover:bg-amber-400 transition transform hover:scale-105 shadow-lg border-4 border-zinc-900">
+              <button onClick={capturePhoto} className="p-5 rounded-full bg-white text-black hover:bg-zinc-200 transition transform hover:scale-105 shadow-lg border-4 border-black">
                 <Camera size={32} />
               </button>
             </div>
@@ -133,27 +132,20 @@ const Uploader: React.FC<UploaderProps> = ({ files, setFiles, isAnalyzing }) => 
           onDragOver={onDragEnter}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
+          onClick={() => !isAnalyzing && fileInputRef.current?.click()}
           className={`
-            relative group border-2 border-dashed rounded-xl p-8 md:p-12 text-center transition-all duration-300
-            ${dragActive ? 'border-amber-500 bg-amber-500/10' : 'border-zinc-700 bg-zinc-900/50 hover:border-zinc-600'}
+            relative group flex flex-col items-center justify-center h-48 border border-dashed rounded-lg transition-all duration-200
+            ${dragActive ? 'border-white bg-zinc-900' : 'border-zinc-700 bg-black hover:border-zinc-500'}
             ${isAnalyzing ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
           `}
         >
-          <div className="flex flex-col items-center gap-4">
-            <div className="p-4 bg-zinc-800 rounded-full group-hover:bg-zinc-700 transition-colors">
-              <Upload className="w-8 h-8 text-zinc-400" />
+          <div className="flex flex-col items-center gap-2">
+            <div className="p-2 bg-zinc-900 rounded-md border border-zinc-800 text-zinc-400 group-hover:text-white transition-colors">
+              <Upload size={20} />
             </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold text-white">Drop your vinyls here</h3>
-              <p className="text-zinc-400 text-sm">
-                Or <button onClick={() => fileInputRef.current?.click()} className="text-amber-500 hover:text-amber-400 underline decoration-dashed underline-offset-4">browse files</button>
-                {' '}or <button onClick={startCamera} className="text-amber-500 hover:text-amber-400 underline decoration-dashed underline-offset-4">take a photo</button>
-              </p>
-              <p className="text-zinc-500 text-xs">
-                Supports JPG, PNG • Max {MAX_BATCH_SIZE} records per batch
-              </p>
-            </div>
+            <p className="text-sm text-zinc-500 group-hover:text-zinc-300 font-medium">
+              Drop files or click to upload
+            </p>
           </div>
           
           <input 
@@ -167,38 +159,37 @@ const Uploader: React.FC<UploaderProps> = ({ files, setFiles, isAnalyzing }) => 
         </div>
       )}
 
+      {/* Camera Button Mobile / Desktop quick access */}
+      {!isCameraOpen && !isAnalyzing && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); startCamera(); }}
+          className="mt-4 w-full py-2 flex items-center justify-center gap-2 text-sm text-zinc-400 border border-zinc-800 rounded-lg hover:bg-zinc-900 hover:text-white transition-colors"
+        >
+          <Camera size={16} />
+          <span>Use Camera</span>
+        </button>
+      )}
+
       {/* Preview Grid */}
       {files.length > 0 && (
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Queue ({files.length}/{MAX_BATCH_SIZE})</h4>
-            {files.length > 0 && !isAnalyzing && (
-              <button 
-                onClick={() => setFiles([])}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors"
-              >
-                Clear All
-              </button>
-            )}
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center justify-between text-xs text-zinc-500 uppercase tracking-wider font-semibold">
+             <span>Queue ({files.length})</span>
+             <button onClick={() => setFiles([])} className="hover:text-white">Clear</button>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
             {files.map((file) => (
-              <div key={file.id} className="relative aspect-square group rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900">
-                <img src={file.preview} alt="Preview" className="w-full h-full object-cover" />
+              <div key={file.id} className="relative aspect-square group rounded-md overflow-hidden border border-zinc-800 bg-zinc-900">
+                <img src={file.preview} alt="Preview" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
                 {!isAnalyzing && (
                   <button
                     onClick={() => removeFile(file.id)}
-                    className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500"
+                    className="absolute top-1 right-1 p-1 bg-black text-white rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <X size={14} />
+                    <X size={12} />
                   </button>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 pointer-events-none">
-                  <span className="text-xs text-white truncate w-full flex items-center gap-1">
-                    <Disc size={10} /> {file.file.name}
-                  </span>
-                </div>
               </div>
             ))}
           </div>
