@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Terminal, Loader2, Send, Camera, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
-import { AgentResponse, AgentQuestion } from '../types';
+import { Loader2, Send, Camera, CheckCircle2, AlertTriangle, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { AgentResponse, AgentQuestion, UploadedFile } from '../types';
 import Uploader from './Uploader';
 
 interface AgentViewProps {
@@ -14,8 +14,7 @@ const AgentView: React.FC<AgentViewProps> = ({ initialResponse, onReply, onCompl
   const [history, setHistory] = useState<AgentResponse[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<AgentQuestion | null>(null);
   const [inputText, setInputText] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]); // Reusing Uploader structure
-  
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,7 +24,6 @@ const AgentView: React.FC<AgentViewProps> = ({ initialResponse, onReply, onCompl
     }
   }, [initialResponse]);
 
-  // Scroll to bottom on updates
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -34,10 +32,7 @@ const AgentView: React.FC<AgentViewProps> = ({ initialResponse, onReply, onCompl
 
   const handleResponseLogic = (response: AgentResponse) => {
     if (response.status === 'complete' && response.record) {
-      // Small delay to let user see the "Complete" log
-      setTimeout(() => {
-        onComplete(response.record);
-      }, 1500);
+      setTimeout(() => onComplete(response.record), 1200);
     } else if (response.status === 'clarification_needed' && response.question) {
       setCurrentQuestion(response.question);
     }
@@ -48,7 +43,6 @@ const AgentView: React.FC<AgentViewProps> = ({ initialResponse, onReply, onCompl
     setInputText('');
     setUploadedFiles([]);
 
-    // Add a temporary "thinking" state visual if needed, but App.tsx isProcessing handles the spinner
     try {
       const newResponse = await onReply(text, file);
       setHistory(prev => [...prev, newResponse]);
@@ -67,124 +61,157 @@ const AgentView: React.FC<AgentViewProps> = ({ initialResponse, onReply, onCompl
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4">
-      
-      {/* Terminal / Log View */}
-      <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl flex flex-col min-h-[400px] max-h-[600px]">
-        
-        {/* Header */}
-        <div className="bg-zinc-900 px-4 py-2 border-b border-zinc-800 flex items-center gap-2">
-          <Terminal size={14} className="text-zinc-500" />
-          <span className="text-xs font-mono text-zinc-400">AGI_RESEARCH_PROCESS_V3.1</span>
-          {isProcessing && <Loader2 size={12} className="ml-auto animate-spin text-green-500" />}
+    <div className="w-full space-y-0 animate-slide-up">
+
+      {/* ─── Research Log ─── */}
+      <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl overflow-hidden flex flex-col" style={{ minHeight: '420px', maxHeight: '70vh' }}>
+
+        {/* Header bar */}
+        <div className="px-4 py-3 border-b border-[#1a1a1a] flex items-center justify-between bg-[#0a0a0a]">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-green-400 animate-pulse' : history.some(h => h.status === 'complete') ? 'bg-blue-400' : 'bg-[#555]'}`} />
+            <span className="text-xs font-medium text-[#888]">Research Agent</span>
+          </div>
+          {isProcessing && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-[#555] font-mono">analyzing</span>
+              <Loader2 size={12} className="animate-spin text-[#555]" />
+            </div>
+          )}
         </div>
 
-        {/* Logs Area */}
-        <div ref={scrollRef} className="flex-1 p-6 overflow-y-auto space-y-6 font-mono text-sm">
+        {/* ─── Log entries ─── */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+
           {history.length === 0 && isProcessing && (
-             <div className="text-zinc-500 animate-pulse">Initializing agent session...</div>
+            <div className="flex items-center gap-3 py-8 justify-center">
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#555] typing-dot" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#555] typing-dot" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#555] typing-dot" />
+              </div>
+              <span className="text-xs text-[#555]">Initializing...</span>
+            </div>
           )}
 
           {history.map((step, idx) => (
-            <div key={idx} className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-500">
+            <div key={idx} className="space-y-1.5 animate-fade-in">
               {step.logs.map((log, logIdx) => (
-                <div key={logIdx} className="flex gap-3 items-start">
-                  <span className="text-zinc-600 select-none">sw@gemini:~$</span>
-                  <span className="text-green-400/90">{log}</span>
+                <div key={logIdx} className="flex gap-2 items-start group" style={{ animationDelay: `${logIdx * 60}ms` }}>
+                  <ChevronRight size={12} className="text-[#333] mt-0.5 shrink-0" />
+                  <span className="text-[13px] leading-relaxed text-[#999]">{log}</span>
                 </div>
               ))}
-              
+
               {step.status === 'clarification_needed' && (
-                 <div className="pt-2 text-amber-400 flex gap-2 items-center">
-                    <span>⚠ INTERVENTION REQUIRED</span>
-                 </div>
+                <div className="flex items-center gap-2 pt-2 pl-0.5">
+                  <AlertTriangle size={13} className="text-amber-500/80" />
+                  <span className="text-xs font-medium text-amber-500/80">Input needed</span>
+                </div>
               )}
-               {step.status === 'complete' && (
-                 <div className="pt-2 text-blue-400 flex gap-2 items-center">
-                    <CheckCircle2 size={16} />
-                    <span>IDENTIFICATION COMPLETE. PREPARING REPORT...</span>
-                 </div>
+
+              {step.status === 'complete' && (
+                <div className="flex items-center gap-2 pt-2 pl-0.5">
+                  <CheckCircle2 size={13} className="text-blue-400" />
+                  <span className="text-xs font-medium text-blue-400">Identification complete</span>
+                </div>
+              )}
+
+              {step.status === 'error' && step.error && (
+                <div className="mt-2 p-3 bg-red-950/20 border border-red-900/30 rounded-lg text-xs text-red-300">
+                  {step.error}
+                </div>
+              )}
+
+              {idx < history.length - 1 && (
+                <div className="border-t border-[#111] my-3" />
               )}
             </div>
           ))}
-          
+
+          {/* Thinking indicator */}
           {isProcessing && history.length > 0 && (
-             <div className="flex gap-2 items-center text-zinc-500 pl-2">
-                <span className="w-2 h-4 bg-zinc-500 animate-pulse"></span>
-             </div>
+            <div className="flex items-center gap-2 py-2 animate-fade-in">
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#555] typing-dot" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#555] typing-dot" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#555] typing-dot" />
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Interaction Area (Footer) */}
-        <div className="border-t border-zinc-800 bg-zinc-900/50 p-4 min-h-[100px] flex flex-col justify-end transition-all">
-          
+        {/* ─── Interaction footer ─── */}
+        <div className="border-t border-[#1a1a1a] bg-[#050505] p-4 safe-bottom">
+
           {isProcessing ? (
-            <div className="text-center text-zinc-500 text-sm py-4">
-              Agent is researching...
+            <div className="text-center py-3">
+              <span className="text-xs text-[#555]">Agent is researching...</span>
             </div>
           ) : currentQuestion ? (
-            <div className="space-y-4 animate-in slide-in-from-bottom-4">
-              
+            <div className="space-y-3 animate-slide-up">
+
+              {/* Question text */}
               <div className="flex items-start gap-3">
-                 <div className="bg-white/10 p-2 rounded-full text-white">
-                    {currentQuestion.type === 'image_request' ? <Camera size={20} /> : <Terminal size={20} />}
-                 </div>
-                 <div className="flex-1">
-                    <h3 className="font-semibold text-white">{currentQuestion.text}</h3>
-                    {currentQuestion.type === 'image_request' && (
-                      <p className="text-xs text-zinc-400 mt-1">Please upload a photo to continue.</p>
-                    )}
-                 </div>
+                <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                  {currentQuestion.type === 'image_request' ? <Camera size={14} className="text-[#888]" /> : <AlertTriangle size={14} className="text-amber-500/70" />}
+                </div>
+                <div>
+                  <p className="text-sm text-white font-medium leading-snug">{currentQuestion.text}</p>
+                  {currentQuestion.type === 'image_request' && (
+                    <p className="text-[11px] text-[#555] mt-1">Upload a photo to continue</p>
+                  )}
+                </div>
               </div>
 
-              {/* Options for Choice */}
+              {/* Choice options */}
               {currentQuestion.type === 'choice' && currentQuestion.options && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="space-y-1.5">
                   {currentQuestion.options.map((opt) => (
                     <button
                       key={opt.value}
                       onClick={() => submitReply(opt.value)}
-                      className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-left text-sm transition-colors text-zinc-200"
+                      className="w-full px-4 py-3 bg-[#111] hover:bg-[#1a1a1a] border border-[#222] hover:border-[#333] rounded-xl text-left transition-all press-scale group"
                     >
-                      <span className="block font-medium text-white">{opt.label}</span>
-                      <span className="text-xs text-zinc-500">{opt.value}</span>
+                      <span className="text-sm text-white font-medium">{opt.label}</span>
+                      {opt.value !== opt.label && (
+                        <span className="block text-[11px] text-[#666] mt-0.5 group-hover:text-[#888] transition-colors">{opt.value}</span>
+                      )}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Text Input / Image Upload */}
+              {/* Text + image input */}
               {(currentQuestion.type === 'text' || currentQuestion.type === 'image_request') && (
                 <div className="space-y-3">
-                   {currentQuestion.allowImageUpload && (
-                     <div className="border border-zinc-700 rounded-lg p-2 bg-black/20">
-                        <Uploader files={uploadedFiles} setFiles={setUploadedFiles} isAnalyzing={false} />
-                     </div>
-                   )}
-                   
-                   <form onSubmit={handleTextSubmit} className="flex gap-2">
-                      <input 
-                        type="text" 
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        placeholder="Type your answer here..."
-                        autoFocus
-                        className="flex-1 bg-black border border-zinc-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-all"
-                      />
-                      <button 
-                        type="submit"
-                        disabled={!inputText && uploadedFiles.length === 0}
-                        className="bg-white text-black px-6 rounded-lg font-medium hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <Send size={18} />
-                      </button>
-                   </form>
+                  {(currentQuestion.allowImageUpload || currentQuestion.type === 'image_request') && (
+                    <Uploader files={uploadedFiles} setFiles={setUploadedFiles} isAnalyzing={false} compact />
+                  )}
+
+                  <form onSubmit={handleTextSubmit} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      placeholder={currentQuestion.type === 'image_request' ? "Add a note (optional)..." : "Type your answer..."}
+                      autoFocus
+                      className="flex-1 bg-black border border-[#222] rounded-xl px-4 py-3 text-sm text-white placeholder-[#444] focus:outline-none focus:border-[#444] transition-colors"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!inputText.trim() && uploadedFiles.length === 0}
+                      className="px-4 bg-white text-black rounded-xl font-medium hover:bg-[#e0e0e0] disabled:opacity-30 disabled:cursor-not-allowed transition-all press-scale"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </form>
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-center text-zinc-600 text-xs py-2">
-               Session Active. Waiting for agent...
+            <div className="text-center py-2">
+              <span className="text-[11px] text-[#444]">Waiting for agent...</span>
             </div>
           )}
         </div>
