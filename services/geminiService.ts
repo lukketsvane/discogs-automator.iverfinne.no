@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { VinylRecord } from "../types";
+import { DraftRecord } from "../types";
 
 // Helper to convert File to Base64
 const fileToGenerativePart = async (file: File): Promise<string> => {
@@ -7,7 +7,6 @@ const fileToGenerativePart = async (file: File): Promise<string> => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
-      // Remove data url prefix (e.g., "data:image/jpeg;base64,")
       const base64Content = base64String.split(',')[1];
       resolve(base64Content);
     };
@@ -16,14 +15,13 @@ const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-export const identifyVinyls = async (files: File[], apiKey: string): Promise<VinylRecord[]> => {
+export const analyzeRecordImages = async (files: File[], apiKey: string): Promise<DraftRecord> => {
   if (!apiKey) {
     throw new Error("Gemini API Key is missing. Please set it in the settings.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // Prepare images
   const imageParts = await Promise.all(
     files.map(async (file) => ({
       inlineData: {
@@ -33,81 +31,58 @@ export const identifyVinyls = async (files: File[], apiKey: string): Promise<Vin
     }))
   );
 
-  // Define the schema for structured JSON output
-  const vinylSchema: Schema = {
-    type: Type.ARRAY,
-    items: {
-      type: Type.OBJECT,
-      properties: {
-        artist: { type: Type.STRING, description: "Name of the artist or band." },
-        title: { type: Type.STRING, description: "Title of the album or EP." },
-        year: { type: Type.STRING, description: "Release year if visible or deducible." },
-        label: { type: Type.STRING, description: "Record label name." },
-        catalogNumber: { type: Type.STRING, description: "Catalog number (e.g., SHVL 804)." },
-        estimatedPrice: { type: Type.STRING, description: "Estimated market value range based on condition and rarity found via search." },
-        discogsUrl: { type: Type.STRING, description: "A likely URL to the release on Discogs.com found via search." },
-        description: { type: Type.STRING, description: "Brief details about the pressing, edition, or visual condition notes." },
-        genre: { type: Type.STRING, description: "Primary genre." },
-        index: { type: Type.INTEGER, description: "The index of the image this result corresponds to (0-based)." },
-      },
-      required: ["artist", "title", "description", "index"],
+  const draftSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      artist: { type: Type.STRING, description: "Artist or Band Name" },
+      title: { type: Type.STRING, description: "Album Title" },
+      year: { type: Type.STRING, description: "Release Year (check dates on back or labels)" },
+      label: { type: Type.STRING, description: "Record Label" },
+      catalogNumber: { type: Type.STRING, description: "Catalog Number (Matrix/Runout if visible, or spine/back cover)" },
+      country: { type: Type.STRING, description: "Country of manufacture" },
+      format: { type: Type.STRING, description: "Format details (e.g., LP, Album, Reissue, 180g)" },
+      estimatedPrice: { type: Type.STRING, description: "Estimated market value range" },
+      discogsUrl: { type: Type.STRING, description: "Best matching Discogs URL" },
+      description: { type: Type.STRING, description: "Specific notes on pressing, condition of cover visible, and identifying features." },
+      isValid: { type: Type.BOOLEAN, description: "True if images are sufficient (Front AND Back usually required) to identify specific pressing." },
+      validationWarning: { type: Type.STRING, description: "Warning message if images are insufficient (e.g. 'Missing back cover', 'Cannot read runout')." },
     },
+    required: ["artist", "title", "isValid"],
   };
 
   const systemInstruction = `
-    You are an expert vinyl record appraiser and archivist. 
-    You will be provided with images of vinyl records (covers or center labels).
-    For EACH image provided:
-    1. Identify the Artist and Album Title.
-    2. Identify the specific pressing if possible (Catalog Number, Label).
-    3. Use the googleSearch tool to find the current estimated market value (price) and the specific Discogs URL for this release.
-    4. Provide a brief description of the album and specific pressing details identified.
-    5. Return the result as a strictly structured JSON array, where the 'index' property corresponds to the order of the images uploaded (0 for the first image, 1 for the second, etc.).
+    You are a strict, professional vinyl archivist. 
+    Your task is to identify a SPECIFIC vinyl pressing based on a set of images.
     
-    If an image is not a vinyl record, mark the artist as "Unknown" and description as "Not a vinyl record".
+    CRITICAL RULES:
+    1.  You typically need both FRONT and BACK cover images, and ideally center labels, to confirm a specific pressing (year, country, version).
+    2.  If the images provided are insufficient to distinguish the specific pressing (e.g., only front cover provided), set 'isValid' to false and explain why in 'validationWarning'.
+    3.  Check for 'Matrix / Runout' etchings if visible in close-ups to identify the exact variant.
+    4.  Use the 'googleSearch' tool to find the exact Discogs release page and current market price.
+    5.  Be precise with years and catalog numbers.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", // Using Pro for better reasoning and search capabilities
+      model: "gemini-3-pro-preview",
       contents: {
         parts: [
           ...imageParts,
-          { text: "Identify these vinyl records. Use Google Search to find real-time pricing and Discogs links." }
+          { text: "Analyze these images as one single vinyl record release. Identify the exact pressing details." }
         ]
       },
       config: {
         systemInstruction: systemInstruction,
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
-        responseSchema: vinylSchema,
+        responseSchema: draftSchema,
       },
     });
 
     const jsonText = response.text;
     if (!jsonText) throw new Error("No data returned from Gemini");
 
-    const parsedData = JSON.parse(jsonText);
-    
-    // Map the results back to the original files to attach the preview images locally
-    // Note: The model is asked to return an 'index' to map back to the input array
-    const mappedResults: VinylRecord[] = parsedData.map((item: any) => ({
-      id: crypto.randomUUID(),
-      originalImage: "", // We will attach this in the UI component using the file list
-      artist: item.artist,
-      title: item.title,
-      year: item.year,
-      label: item.label,
-      catalogNumber: item.catalogNumber,
-      estimatedPrice: item.estimatedPrice,
-      discogsUrl: item.discogsUrl,
-      description: item.description,
-      genre: item.genre,
-      confidenceScore: 90, // Placeholder, usually inferred
-      _originalIndex: item.index // Helper to map back to UI state
-    }));
-
-    return mappedResults;
+    return JSON.parse(jsonText) as DraftRecord;
 
   } catch (error) {
     console.error("Gemini Analysis Error:", error);

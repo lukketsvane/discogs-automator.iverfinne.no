@@ -1,24 +1,34 @@
 export interface VinylRecord {
-  id: string; // Unique ID for key mapping
-  originalImage: string; // Base64 of the uploaded image
+  id: string;
   artist: string;
   title: string;
-  year?: string;
-  label?: string;
-  catalogNumber?: string;
-  estimatedPrice?: string;
-  discogsUrl?: string;
+  year: string;
+  label: string;
+  catalogNumber: string;
+  country?: string;
+  condition?: string;
+  estimatedPrice: string;
+  discogsUrl: string;
   description: string;
-  genre?: string;
-  confidenceScore: number; // 0-100
-  _originalIndex?: number;
+  format?: string;
+  images: string[]; // Array of base64 strings
+  dateAdded: number;
 }
 
-export interface AnalysisResult {
-  records: VinylRecord[];
+export interface DraftRecord {
+  artist: string;
+  title: string;
+  year: string;
+  label: string;
+  catalogNumber: string;
+  country: string;
+  format: string;
+  estimatedPrice: string;
+  discogsUrl: string;
+  description: string;
+  validationWarning?: string; // If front/back missing or unclear
+  isValid: boolean;
 }
-
-export type ProcessingStatus = 'idle' | 'uploading' | 'analyzing' | 'complete' | 'error';
 
 export interface UploadedFile {
   id: string;
