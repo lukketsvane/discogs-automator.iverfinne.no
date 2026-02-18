@@ -81,7 +81,7 @@ const AgentView: React.FC<AgentViewProps> = ({ initialResponse, onReply, onCompl
         </div>
 
         {/* ─── Log entries ─── */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-momentum">
 
           {history.length === 0 && isProcessing && (
             <div className="flex items-center gap-3 py-8 justify-center">
