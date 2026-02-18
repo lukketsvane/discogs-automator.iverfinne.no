@@ -163,7 +163,7 @@ async function fetchImageAsBytes(url: string): Promise<Uint8Array | null> {
 }
 
 function sanitizeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9_\-. ]/g, '_').substring(0, 80);
+  return name.replace(/[^a-zA-Z0-9_\- ]/g, '_').substring(0, 80);
 }
 
 export async function exportCollectionAsZip(

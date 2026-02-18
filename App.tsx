@@ -1013,7 +1013,11 @@ const RecordDetailView = ({
               min="0.01"
               value={listingPrice}
               onChange={(e) => setListingPrice(e.target.value)}
-              placeholder={record?.estimatedPrice ? record.estimatedPrice.replace(/[^0-9.]/g, '').split(' ')[0] || '10.00' : '10.00'}
+              placeholder={(() => {
+                if (!record?.estimatedPrice) return '10.00';
+                const match = record.estimatedPrice.match(/\d+(\.\d+)?/);
+                return match ? match[0] : '10.00';
+              })()}
               className="w-full bg-black border border-[#222] rounded-lg px-3 py-2.5 text-[13px] text-white placeholder-[#333] focus:outline-none focus:border-[#444] transition-colors"
             />
           </div>
