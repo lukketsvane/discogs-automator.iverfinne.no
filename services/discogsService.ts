@@ -95,4 +95,27 @@ export class DiscogsClient {
       },
     });
   }
+
+  async createListing(
+    releaseId: number,
+    condition: string,
+    price: number,
+    status: 'For Sale' | 'Draft' = 'For Sale',
+    sleeveCondition?: string,
+    comments?: string,
+  ): Promise<any> {
+    const body: Record<string, any> = {
+      release_id: releaseId,
+      condition,
+      price,
+      status,
+    };
+    if (sleeveCondition) body.sleeve_condition = sleeveCondition;
+    if (comments) body.comments = comments;
+
+    return this.request('/marketplace/listings', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
 }

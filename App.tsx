@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Disc, Plus, Settings, User, X, Key, LogOut, ArrowLeft, Loader2, Camera, Search, Library, ExternalLink, ChevronRight, RefreshCw } from 'lucide-react';
+import { Disc, Plus, Settings, User, X, Key, LogOut, ArrowLeft, Loader2, Camera, Search, Library, ExternalLink, ChevronRight, RefreshCw, Download, DollarSign } from 'lucide-react';
 import Uploader from './components/Uploader';
 import VinylCard from './components/VinylCard';
 import RecordForm from './components/RecordForm';
@@ -7,6 +7,7 @@ import AgentView from './components/AgentView';
 import ConnectDiscogs from './components/ConnectDiscogs';
 import { DiscogsAgent, getDefaultGeminiKey } from './services/geminiService';
 import { DiscogsClient } from './services/discogsService';
+import { exportCollectionAsZip } from './services/exportService';
 import { useSwipeDown } from './hooks/useSwipe';
 import { UploadedFile, VinylRecord, DraftRecord, AgentResponse, DiscogsProfile, DiscogsCollectionItem, AppView, TabView } from './types';
 
@@ -41,6 +42,10 @@ const App = () => {
   // ─── Detail State ───
   const [selectedRecord, setSelectedRecord] = useState<VinylRecord | null>(null);
   const [selectedDiscogsItem, setSelectedDiscogsItem] = useState<DiscogsCollectionItem | null>(null);
+
+  // ─── Export State ───
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   // ─── Refs ───
   const agentRef = useRef<DiscogsAgent | null>(null);
@@ -261,6 +266,21 @@ const App = () => {
     setView('detail');
   };
 
+  // ─── Export collection ───
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportProgress(0);
+    try {
+      await exportCollectionAsZip(savedRecords, discogsCollection, (pct) => setExportProgress(pct));
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  };
+
   // Filter collection by search
   const filteredDiscogsCollection = searchQuery
     ? discogsCollection.filter(item => {
@@ -431,13 +451,48 @@ const App = () => {
                         </span>
                       )}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleExport}
+                        disabled={isExporting || (savedRecords.length === 0 && discogsCollection.length === 0)}
+                        className="text-[11px] text-blue-400 flex items-center gap-1 btn-haptic disabled:opacity-40"
+                        title="Export collection as ZIP"
+                      >
+                        {isExporting ? (
+                          <><Loader2 size={11} className="animate-spin" /> {exportProgress}%</>
+                        ) : (
+                          <><Download size={11} /> Export</>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => fetchDiscogsCollection(1)}
+                        disabled={collectionLoading}
+                        className="text-[11px] text-blue-400 flex items-center gap-1 btn-haptic"
+                      >
+                        <RefreshCw size={11} className={collectionLoading ? 'animate-spin' : ''} />
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Export when no Discogs but local records exist */}
+                {!discogsProfile && savedRecords.length > 0 && (
+                  <div className="px-4 pb-2 flex items-center justify-between shrink-0">
+                    <span className="text-[11px] text-[#666]">
+                      <span className="text-white font-semibold">{savedRecords.length}</span> local records
+                    </span>
                     <button
-                      onClick={() => fetchDiscogsCollection(1)}
-                      disabled={collectionLoading}
-                      className="text-[11px] text-blue-400 flex items-center gap-1 btn-haptic"
+                      onClick={handleExport}
+                      disabled={isExporting}
+                      className="text-[11px] text-blue-400 flex items-center gap-1 btn-haptic disabled:opacity-40"
+                      title="Export collection as ZIP"
                     >
-                      <RefreshCw size={11} className={collectionLoading ? 'animate-spin' : ''} />
-                      Refresh
+                      {isExporting ? (
+                        <><Loader2 size={11} className="animate-spin" /> {exportProgress}%</>
+                      ) : (
+                        <><Download size={11} /> Export</>
+                      )}
                     </button>
                   </div>
                 )}
@@ -818,6 +873,14 @@ const RecordDetailView = ({
 }) => {
   const [isAddingToWantlist, setIsAddingToWantlist] = useState(false);
   const [addedToWantlist, setAddedToWantlist] = useState(false);
+  const [isListing, setIsListing] = useState(false);
+  const [listed, setListed] = useState(false);
+  const [listingError, setListingError] = useState('');
+  const [showListingForm, setShowListingForm] = useState(false);
+  const [listingCondition, setListingCondition] = useState('Very Good Plus (VG+)');
+  const [listingSleeveCondition, setListingSleeveCondition] = useState('Very Good Plus (VG+)');
+  const [listingPrice, setListingPrice] = useState('');
+  const [listingComments, setListingComments] = useState('');
 
   // Normalize
   const title = record?.title || discogsItem?.basic_information?.title || 'Unknown';
@@ -846,6 +909,34 @@ const RecordDetailView = ({
       setAddedToWantlist(true);
     } catch { }
     setIsAddingToWantlist(false);
+  };
+
+  const handleListForSale = async () => {
+    if (!discogsToken || !releaseId) return;
+    const price = parseFloat(listingPrice);
+    if (isNaN(price) || price <= 0) {
+      setListingError('Enter a valid price');
+      return;
+    }
+    setIsListing(true);
+    setListingError('');
+    try {
+      const client = new DiscogsClient(discogsToken);
+      await client.createListing(
+        releaseId,
+        listingCondition,
+        price,
+        'For Sale',
+        listingSleeveCondition,
+        listingComments || undefined,
+      );
+      setListed(true);
+      setShowListingForm(false);
+    } catch (e: any) {
+      setListingError(e.message || 'Failed to create listing');
+    } finally {
+      setIsListing(false);
+    }
   };
 
   return (
@@ -879,6 +970,19 @@ const RecordDetailView = ({
             <ExternalLink size={14} /> View on Discogs
           </a>
         )}
+        {discogsToken && releaseId && !listed && (
+          <button
+            onClick={() => setShowListingForm(!showListingForm)}
+            className="py-2.5 px-4 bg-[#111] border border-[#222] rounded-xl text-[13px] text-green-400 font-medium flex items-center gap-2 press-scale"
+          >
+            <DollarSign size={14} /> Sell
+          </button>
+        )}
+        {listed && (
+          <span className="py-2.5 px-4 bg-green-950/20 border border-green-900/20 rounded-xl text-[13px] text-green-400 font-medium">
+            Listed ✓
+          </span>
+        )}
         {discogsToken && releaseId && !addedToWantlist && (
           <button
             onClick={addToWantlist}
@@ -895,6 +999,101 @@ const RecordDetailView = ({
           </span>
         )}
       </div>
+
+      {/* List for Sale form */}
+      {showListingForm && discogsToken && releaseId && (
+        <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-3.5 space-y-3 animate-slide-up">
+          <p className="text-[13px] font-semibold text-white">List for Sale</p>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-[#666] uppercase tracking-wider">Price (USD)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={listingPrice}
+              onChange={(e) => setListingPrice(e.target.value)}
+              placeholder={record?.estimatedPrice ? record.estimatedPrice.replace(/[^0-9.]/g, '').split(' ')[0] || '10.00' : '10.00'}
+              className="w-full bg-black border border-[#222] rounded-lg px-3 py-2.5 text-[13px] text-white placeholder-[#333] focus:outline-none focus:border-[#444] transition-colors"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-[#666] uppercase tracking-wider">Vinyl Condition</label>
+              <select
+                value={listingCondition}
+                onChange={(e) => setListingCondition(e.target.value)}
+                className="w-full bg-black border border-[#222] rounded-lg px-3 py-2.5 text-[13px] text-white focus:outline-none focus:border-[#444] transition-colors"
+              >
+                <option>Mint (M)</option>
+                <option>Near Mint (NM or M-)</option>
+                <option>Very Good Plus (VG+)</option>
+                <option>Very Good (VG)</option>
+                <option>Good Plus (G+)</option>
+                <option>Good (G)</option>
+                <option>Fair (F)</option>
+                <option>Poor (P)</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-[#666] uppercase tracking-wider">Sleeve Condition</label>
+              <select
+                value={listingSleeveCondition}
+                onChange={(e) => setListingSleeveCondition(e.target.value)}
+                className="w-full bg-black border border-[#222] rounded-lg px-3 py-2.5 text-[13px] text-white focus:outline-none focus:border-[#444] transition-colors"
+              >
+                <option>Mint (M)</option>
+                <option>Near Mint (NM or M-)</option>
+                <option>Very Good Plus (VG+)</option>
+                <option>Very Good (VG)</option>
+                <option>Good Plus (G+)</option>
+                <option>Good (G)</option>
+                <option>Fair (F)</option>
+                <option>Poor (P)</option>
+                <option>Generic</option>
+                <option>Not Graded</option>
+                <option>No Cover</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-[#666] uppercase tracking-wider">Comments (optional)</label>
+            <textarea
+              value={listingComments}
+              onChange={(e) => setListingComments(e.target.value)}
+              rows={2}
+              placeholder="Any notes about this item..."
+              className="w-full bg-black border border-[#222] rounded-lg px-3 py-2.5 text-[13px] text-white placeholder-[#333] focus:outline-none focus:border-[#444] transition-colors resize-none"
+            />
+          </div>
+
+          {listingError && (
+            <p className="text-[11px] text-red-400">{listingError}</p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowListingForm(false)}
+              className="flex-1 py-2.5 text-[13px] text-[#666] font-medium rounded-xl border border-[#222] press-scale"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleListForSale}
+              disabled={isListing}
+              className="flex-[2] py-2.5 bg-green-600 text-white text-[13px] font-semibold rounded-xl press-scale flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isListing ? (
+                <><Loader2 size={14} className="animate-spin" /> Listing...</>
+              ) : (
+                <><DollarSign size={14} /> List for Sale</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Additional images for local records */}
       {record && record.images.length > 1 && (
