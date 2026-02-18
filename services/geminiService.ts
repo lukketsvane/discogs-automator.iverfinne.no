@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AgentResponse } from "../types";
 
+// Default API key from env vars (set at hosting/build time)
+const DEFAULT_GEMINI_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+
+export function getDefaultGeminiKey(): string {
+  return DEFAULT_GEMINI_KEY;
+}
+
 const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: string, mimeType: string } }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -23,7 +30,10 @@ export class DiscogsAgent {
   private chat: any;
 
   constructor(apiKey: string, discogsToken?: string) {
-    const ai = new GoogleGenAI({ apiKey });
+    const effectiveKey = apiKey || DEFAULT_GEMINI_KEY;
+    if (!effectiveKey) throw new Error("No Gemini API key available");
+
+    const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
     const responseSchema: Schema = {
       type: Type.OBJECT,
@@ -128,13 +138,13 @@ ${discogsToken ? '\nThe user has a Discogs account connected. When identificatio
     try {
       const imageParts = await Promise.all(files.map(fileToGenerativePart));
 
+      const message = [
+        ...imageParts,
+        { text: "Identify this vinyl record. Analyze all provided images carefully. Check for specific pressing variations - look at label design, catalog numbers, matrix/runout etchings, barcode, country of origin, and any other distinguishing features. Search Discogs to find the exact release. Be thorough and show your work in the logs." }
+      ];
+
       const response = await this.chat.sendMessage({
-        content: {
-          parts: [
-            ...imageParts,
-            { text: "Identify this vinyl record. Analyze all provided images carefully. Check for specific pressing variations - look at label design, catalog numbers, matrix/runout etchings, barcode, country of origin, and any other distinguishing features. Search Discogs to find the exact release. Be thorough and show your work in the logs." }
-          ]
-        }
+        message,
       });
 
       const text = response.text;
@@ -166,7 +176,7 @@ ${discogsToken ? '\nThe user has a Discogs account connected. When identificatio
       }
 
       const response = await this.chat.sendMessage({
-        content: { parts }
+        message: parts,
       });
 
       const text = response.text;

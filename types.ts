@@ -49,6 +49,39 @@ export interface DiscogsSearchResponse {
   };
 }
 
+// ─── Discogs Collection ──────────────────────────
+export interface DiscogsCollectionItem {
+  id: number;
+  instance_id: number;
+  folder_id: number;
+  rating: number;
+  date_added: string;
+  basic_information: {
+    id: number;
+    title: string;
+    year: number;
+    thumb: string;
+    cover_image: string;
+    resource_url: string;
+    artists: { name: string; id: number }[];
+    labels: { name: string; catno: string; id: number }[];
+    formats: { name: string; qty: string; descriptions?: string[] }[];
+    genres: string[];
+    styles: string[];
+  };
+  notes?: { field_id: number; value: string }[];
+}
+
+export interface DiscogsCollectionResponse {
+  pagination: {
+    page: number;
+    pages: number;
+    per_page: number;
+    items: number;
+  };
+  releases: DiscogsCollectionItem[];
+}
+
 // ─── Records ──────────────────────────────────────
 export interface VinylRecord {
   id: string;
@@ -113,4 +146,6 @@ export interface AgentResponse {
   error?: string;
 }
 
-export type AppView = 'home' | 'agent' | 'review';
+// ─── App Views ────────────────────────────────────
+export type AppView = 'home' | 'agent' | 'review' | 'detail';
+export type TabView = 'collection' | 'identify' | 'settings';

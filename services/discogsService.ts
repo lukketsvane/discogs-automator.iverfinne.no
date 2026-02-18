@@ -1,4 +1,4 @@
-import { DiscogsUser, DiscogsProfile, DiscogsSearchResponse } from '../types';
+import { DiscogsUser, DiscogsProfile, DiscogsSearchResponse, DiscogsCollectionResponse } from '../types';
 
 const BASE_URL = 'https://api.discogs.com';
 const USER_AGENT = 'discogs.iverfinne.no/1.0';
@@ -58,13 +58,41 @@ export class DiscogsClient {
     });
   }
 
-  async getCollection(username: string, folderId: number = 0, page: number = 1): Promise<any> {
-    return this.request(`/users/${username}/collection/folders/${folderId}/releases?page=${page}&per_page=50&sort=added&sort_order=desc`);
+  async removeFromCollection(username: string, releaseId: number, instanceId: number, folderId: number = 1): Promise<void> {
+    await fetch(`${BASE_URL}/users/${username}/collection/folders/${folderId}/releases/${releaseId}/instances/${instanceId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Discogs token=${this.token}`,
+        'User-Agent': USER_AGENT,
+      },
+    });
+  }
+
+  async getCollection(username: string, folderId: number = 0, page: number = 1, perPage: number = 50): Promise<DiscogsCollectionResponse> {
+    return this.request(`/users/${username}/collection/folders/${folderId}/releases?page=${page}&per_page=${perPage}&sort=added&sort_order=desc`);
+  }
+
+  async getCollectionValue(username: string): Promise<{ median: string; minimum: string; maximum: string }> {
+    return this.request(`/users/${username}/collection/value`);
+  }
+
+  async getWantlist(username: string, page: number = 1): Promise<any> {
+    return this.request(`/users/${username}/wants?page=${page}&per_page=50`);
   }
 
   async addToWantlist(username: string, releaseId: number): Promise<any> {
     return this.request(`/users/${username}/wants/${releaseId}`, {
       method: 'PUT',
+    });
+  }
+
+  async removeFromWantlist(username: string, releaseId: number): Promise<void> {
+    await fetch(`${BASE_URL}/users/${username}/wants/${releaseId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Discogs token=${this.token}`,
+        'User-Agent': USER_AGENT,
+      },
     });
   }
 }

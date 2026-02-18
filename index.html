@@ -2,13 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=0.75, maximum-scale=0.75, minimum-scale=0.75, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Discogs" />
     <meta name="theme-color" content="#000000" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
+    <meta name="screen-orientation" content="portrait" />
     <title>discogs.iverfinne.no</title>
 
     <!-- Icons -->
@@ -22,7 +23,15 @@
       * {
         -webkit-tap-highlight-color: transparent;
         -webkit-touch-callout: none;
+        box-sizing: border-box;
       }
+
+      html {
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+
       body {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         background-color: #000;
@@ -30,45 +39,63 @@
         overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        /* Prevent pull-to-refresh in standalone */
-        overflow-y: auto;
         -webkit-overflow-scrolling: touch;
-      }
-      html {
-        scroll-behavior: smooth;
-        /* Standalone: fill entire screen */
         height: 100%;
         overflow: hidden;
+        margin: 0;
+        padding: 0;
+        touch-action: pan-y;
+        -webkit-text-size-adjust: 100%;
       }
-      body { height: 100%; overflow: auto; }
-      #root { min-height: 100%; }
 
-      /* Safe areas */
+      #root {
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* Safe areas for iPhone notch/dynamic island */
       .safe-top { padding-top: env(safe-area-inset-top, 0px); }
       .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-      .safe-x { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+      .safe-x {
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+      }
 
-      /* Scrollbar */
-      ::-webkit-scrollbar { width: 0; background: transparent; }
+      /* Hide scrollbar but allow scrolling */
+      ::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
+      * { scrollbar-width: none; }
 
-      /* Animations */
+      /* ─── Animations ─── */
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+      @keyframes sheetDown { from { transform: translateY(0); } to { transform: translateY(100%); } }
       @keyframes typingDot { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+      @keyframes swipeReveal { from { transform: translateX(0); } to { transform: translateX(-80px); } }
+      @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); } 70% { transform: scale(0.9); } 100% { transform: scale(1); opacity: 1; } }
+      @keyframes tabPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+      @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
-      .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
-      .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) both; }
-      .animate-slide-down { animation: slideDown 0.3s cubic-bezier(0.32, 0.72, 0, 1) both; }
-      .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.32, 0.72, 0, 1) both; }
+      .animate-fade-in { animation: fadeIn 0.25s ease-out both; }
+      .animate-slide-up { animation: slideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) both; }
+      .animate-slide-down { animation: slideDown 0.25s cubic-bezier(0.32, 0.72, 0, 1) both; }
+      .animate-scale-in { animation: scaleIn 0.2s cubic-bezier(0.32, 0.72, 0, 1) both; }
       .animate-sheet-up { animation: sheetUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) both; }
+      .animate-bounce-in { animation: bounceIn 0.5s cubic-bezier(0.32, 0.72, 0, 1) both; }
 
       /* iOS-like press feedback */
-      .press-scale { transition: transform 0.1s ease, opacity 0.1s ease; }
-      .press-scale:active { transform: scale(0.97); opacity: 0.8; }
+      .press-scale {
+        transition: transform 0.1s ease, opacity 0.1s ease;
+        -webkit-transform: translateZ(0);
+      }
+      .press-scale:active {
+        transform: scale(0.97);
+        opacity: 0.8;
+      }
 
       /* Typing dots */
       .typing-dot { animation: typingDot 1.4s infinite; }
@@ -83,16 +110,133 @@
       }
 
       /* Prevent text selection on interactive elements */
-      button, a, [role="button"] { user-select: none; -webkit-user-select: none; }
+      button, a, [role="button"] {
+        user-select: none;
+        -webkit-user-select: none;
+      }
 
-      /* Momentum scroll for log areas */
+      /* Momentum scroll */
       .scroll-momentum {
         -webkit-overflow-scrolling: touch;
         overscroll-behavior-y: contain;
       }
+
+      /* iOS tab bar glass effect */
+      .tab-bar-glass {
+        background: rgba(10, 10, 10, 0.85);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+      }
+
+      /* iOS nav bar glass */
+      .nav-glass {
+        background: rgba(0, 0, 0, 0.72);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+      }
+
+      /* Swipe action container */
+      .swipe-card {
+        overflow: hidden;
+        position: relative;
+      }
+      .swipe-card-content {
+        transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+        will-change: transform;
+      }
+      .swipe-card-content.swiping {
+        transition: none;
+      }
+
+      /* Loading skeleton shimmer */
+      .skeleton {
+        background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+      }
+
+      /* Landscape blocker */
+      .landscape-blocker {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #000;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+      }
+      @media (orientation: landscape) and (max-height: 500px) {
+        .landscape-blocker { display: flex; }
+        #root { display: none !important; }
+      }
+
+      /* Ensure inputs don't zoom on iPhone (already handled by viewport but belt-and-suspenders) */
+      input, textarea, select {
+        font-size: 16px !important;
+      }
+
+      /* Custom range input for iOS feel */
+      input[type="range"] {
+        -webkit-appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 28px;
+        width: 28px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #333;
+        margin-top: -12px;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 4px;
+        background: #333;
+        border-radius: 2px;
+      }
+
+      /* Pull-to-refresh style indicator */
+      .pull-indicator {
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        transition: opacity 0.2s, transform 0.2s;
+      }
+
+      /* iOS-style section headers */
+      .section-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 8px 0;
+      }
+
+      /* Haptic-style button feedback */
+      .btn-haptic {
+        transition: transform 0.08s ease;
+      }
+      .btn-haptic:active {
+        transform: scale(0.95);
+      }
     </style>
   </head>
   <body class="safe-top safe-bottom safe-x">
+    <!-- Landscape Blocker -->
+    <div class="landscape-blocker">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.5">
+        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <line x1="12" y1="18" x2="12" y2="18.01" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <p style="color: #555; font-family: Inter, sans-serif; font-size: 14px; text-align: center; padding: 0 32px;">
+        Please rotate your device to portrait mode
+      </p>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
