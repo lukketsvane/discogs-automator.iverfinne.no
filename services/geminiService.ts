@@ -46,7 +46,7 @@ export class DiscogsAgent {
 
     const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
-    const systemInstruction = `You are an expert Vinyl Record Identification Agent. You identify the EXACT pressing of vinyl records from photos.
+    const systemInstruction = `You are an expert Vinyl Record Identification & Valuation Agent. You identify the EXACT pressing of vinyl records from photos and provide accurate market pricing.
 
 YOU MUST ALWAYS RESPOND WITH VALID JSON (no markdown, no code fences, no extra text). Use this exact schema:
 {
@@ -66,10 +66,10 @@ YOU MUST ALWAYS RESPOND WITH VALID JSON (no markdown, no code fences, no extra t
     "catalogNumber": "string",
     "country": "string",
     "format": "e.g. LP, Album",
-    "estimatedPrice": "price range in USD",
+    "estimatedPrice": "price range in USD based on Discogs marketplace data – include median, low, and high",
     "discogsUrl": "full URL to Discogs release",
     "discogsReleaseId": 123456,
-    "description": "notes about pressing",
+    "description": "detailed notes: pressing info, rarity, condition observations, and pricing rationale",
     "isValid": true/false,
     "validationWarning": "optional warning"
   },
@@ -81,7 +81,9 @@ WORKFLOW:
 2. LOG every observation with specific details: catalog numbers, matrix numbers, label text, barcode numbers, pressing plant codes.
 3. SEARCH using Google Search to find the exact Discogs release page. Search for: "[artist] [title] [catalog number] discogs" or "[matrix number] discogs".
 4. COMPARE your observations against search results. Check label design, catalog number format, country of origin, and pressing details.
-5. DECIDE:
+5. PRICE RESEARCH: Search for current marketplace prices on Discogs. Look up "[artist] [title] discogs marketplace" and note the median, lowest, and highest prices. Factor in condition, pressing rarity, and demand. Provide a clear price range with reasoning.
+6. CONDITION ASSESSMENT: Examine the photos for visible wear, ring wear, seam splits, writing, stickers, or other condition issues. Note the estimated vinyl grade (M/NM/VG+/VG/G+/G) and sleeve grade separately.
+7. DECIDE:
    - If 90%+ confident -> status: "complete" with full record data
    - If multiple possible variants -> status: "clarification_needed" with a choice question listing the variants
    - If missing critical info -> status: "clarification_needed" asking for specific photo or detail
@@ -96,13 +98,16 @@ IMPORTANT RULES:
 - Be thorough in logs - the user wants to follow your research process
 - Include 5-10 log entries per step showing your reasoning
 - When you find the Discogs URL, always include the release ID number
-- Extract price data from Discogs marketplace when available
+- ALWAYS search for and include current Discogs marketplace pricing data (last sold, median, lowest, highest)
+- Include the estimated condition grade in the description (e.g. "Vinyl: VG+, Sleeve: VG")
 - Note any quality/condition observations from the photos
-- If the record is rare or valuable, mention it in the description
-${discogsToken ? '\nThe user has a Discogs account connected. When identification is complete, they can add it directly to their collection.' : ''}`;
+- If the record is rare or valuable, mention it prominently in the description with pricing context
+- In the estimatedPrice field, format as "$X – $Y (Median: $Z)" based on real marketplace data
+- Explain your pricing rationale in the description field
+${discogsToken ? '\nThe user has a Discogs account connected. When identification is complete, they can add it directly to their collection or list it for sale on the Discogs marketplace.' : ''}`;
 
     this.chat = ai.chats.create({
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-flash",
       config: {
         systemInstruction,
         tools: [{ googleSearch: {} }],
@@ -117,7 +122,7 @@ ${discogsToken ? '\nThe user has a Discogs account connected. When identificatio
 
       const message = [
         ...imageParts,
-        { text: "Identify this vinyl record. Analyze all provided images carefully. Check for specific pressing variations - look at label design, catalog numbers, matrix/runout etchings, barcode, country of origin, and any other distinguishing features. Search Discogs to find the exact release. Be thorough and show your work in the logs." }
+        { text: "Identify this vinyl record. Analyze all provided images carefully. Check for specific pressing variations - look at label design, catalog numbers, matrix/runout etchings, barcode, country of origin, and any other distinguishing features. Search Discogs to find the exact release. Research current marketplace prices and provide a detailed price estimate with range. Assess the condition of the vinyl and sleeve from the photos. Be thorough and show your work in the logs." }
       ];
 
       const response = await this.chat.sendMessage({
