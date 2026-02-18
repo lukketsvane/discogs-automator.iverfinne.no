@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { AgentResponse } from "../types";
 
 // Default API key from env vars (set at hosting/build time)
@@ -26,6 +26,17 @@ const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: s
   });
 };
 
+const extractJSON = (text: string): any => {
+  // Handle models that wrap JSON in markdown code fences despite instructions
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  const toParse = fenced ? fenced[1].trim() : text.trim();
+  try {
+    return JSON.parse(toParse);
+  } catch {
+    throw new Error("Failed to parse JSON from model response");
+  }
+};
+
 export class DiscogsAgent {
   private chat: any;
 
@@ -35,68 +46,35 @@ export class DiscogsAgent {
 
     const ai = new GoogleGenAI({ apiKey: effectiveKey });
 
-    const responseSchema: Schema = {
-      type: Type.OBJECT,
-      properties: {
-        logs: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-          description: "Chronological list of actions/thoughts. Be verbose and specific. Each entry is one step: 'Analyzing front cover artwork...', 'Detected catalog number: SHVL 804 on spine', 'Searching Discogs for pressings with this catalog number...', 'Found 12 matching releases, narrowing by label design...'"
-        },
-        status: {
-          type: Type.STRING,
-          enum: ["complete", "clarification_needed", "error"],
-          description: "Current state. Use 'clarification_needed' liberally - it's better to ask than guess wrong."
-        },
-        question: {
-          type: Type.OBJECT,
-          properties: {
-            text: { type: Type.STRING, description: "Clear, specific question for the user." },
-            type: {
-              type: Type.STRING,
-              enum: ["text", "choice", "image_request"],
-              description: "Use 'choice' when you can enumerate options (pressing variants, years, etc). Use 'image_request' when you need a photo of something specific (matrix, label, barcode). Use 'text' for open-ended questions."
-            },
-            options: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  label: { type: Type.STRING, description: "Short display label" },
-                  value: { type: Type.STRING, description: "Detailed value with context" }
-                }
-              },
-              description: "2-6 options for choice questions. Include a 'None of these / Not sure' option."
-            },
-            allowImageUpload: { type: Type.BOOLEAN, description: "Set true if user can optionally provide an image alongside text answer." }
-          }
-        },
-        record: {
-          type: Type.OBJECT,
-          description: "The identified record. Required when status='complete'.",
-          properties: {
-            artist: { type: Type.STRING },
-            title: { type: Type.STRING },
-            year: { type: Type.STRING },
-            label: { type: Type.STRING },
-            catalogNumber: { type: Type.STRING },
-            country: { type: Type.STRING },
-            format: { type: Type.STRING, description: "e.g. 'LP, Album', 'LP, Album, Reissue, Gatefold'" },
-            estimatedPrice: { type: Type.STRING, description: "Price range in USD from Discogs marketplace data" },
-            discogsUrl: { type: Type.STRING, description: "Full URL to the specific Discogs release page" },
-            discogsReleaseId: { type: Type.NUMBER, description: "The numeric Discogs release ID" },
-            description: { type: Type.STRING, description: "Brief notes about the pressing, notable features, condition notes" },
-            isValid: { type: Type.BOOLEAN, description: "true if high confidence identification" },
-            validationWarning: { type: Type.STRING, description: "Warning message if identification has caveats" },
-          },
-          required: ["artist", "title", "isValid"]
-        },
-        error: { type: Type.STRING }
-      },
-      required: ["logs", "status"]
-    };
-
     const systemInstruction = `You are an expert Vinyl Record Identification Agent. You identify the EXACT pressing of vinyl records from photos.
+
+YOU MUST ALWAYS RESPOND WITH VALID JSON (no markdown, no code fences, no extra text). Use this exact schema:
+{
+  "logs": ["string array of chronological actions/thoughts - be verbose, 5-10 entries per step"],
+  "status": "complete" | "clarification_needed" | "error",
+  "question": {                          // include when status="clarification_needed"
+    "text": "clear specific question",
+    "type": "text" | "choice" | "image_request",
+    "options": [{"label": "short label", "value": "detailed value"}],  // for choice type, 2-6 options
+    "allowImageUpload": true/false
+  },
+  "record": {                            // include when status="complete"
+    "artist": "string",
+    "title": "string",
+    "year": "string",
+    "label": "string",
+    "catalogNumber": "string",
+    "country": "string",
+    "format": "e.g. LP, Album",
+    "estimatedPrice": "price range in USD",
+    "discogsUrl": "full URL to Discogs release",
+    "discogsReleaseId": 123456,
+    "description": "notes about pressing",
+    "isValid": true/false,
+    "validationWarning": "optional warning"
+  },
+  "error": "string"                      // include when status="error"
+}
 
 WORKFLOW:
 1. ANALYZE images thoroughly - read ALL text on covers, labels, spines, and any visible matrix/runout etchings.
@@ -124,12 +102,11 @@ IMPORTANT RULES:
 ${discogsToken ? '\nThe user has a Discogs account connected. When identification is complete, they can add it directly to their collection.' : ''}`;
 
     this.chat = ai.chats.create({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-pro",
       config: {
         systemInstruction,
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
+        thinkingConfig: { thinkingBudget: 8192 },
       },
     });
   }
@@ -149,7 +126,7 @@ ${discogsToken ? '\nThe user has a Discogs account connected. When identificatio
 
       const text = response.text;
       if (!text) throw new Error("Empty response from agent");
-      return JSON.parse(text) as AgentResponse;
+      return extractJSON(text) as AgentResponse;
 
     } catch (e: any) {
       console.error("Agent start error:", e);
@@ -181,7 +158,7 @@ ${discogsToken ? '\nThe user has a Discogs account connected. When identificatio
 
       const text = response.text;
       if (!text) throw new Error("Empty response from agent");
-      return JSON.parse(text) as AgentResponse;
+      return extractJSON(text) as AgentResponse;
 
     } catch (e: any) {
       return {
