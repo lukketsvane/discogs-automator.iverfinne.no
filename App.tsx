@@ -7,6 +7,7 @@ import AgentView from './components/AgentView';
 import ConnectDiscogs from './components/ConnectDiscogs';
 import { DiscogsAgent } from './services/geminiService';
 import { DiscogsClient } from './services/discogsService';
+import { useSwipeDown, useSwipeBack } from './hooks/useSwipe';
 import { UploadedFile, VinylRecord, DraftRecord, AgentResponse, DiscogsProfile, AppView } from './types';
 
 const App = () => {
@@ -32,6 +33,9 @@ const App = () => {
 
   // ─── Refs ───
   const agentRef = useRef<DiscogsAgent | null>(null);
+
+  // ─── Gestures ───
+  const settingsSwipe = useSwipeDown(() => setShowSettings(false));
 
   // ─── Init: Load from localStorage ───
   useEffect(() => {
@@ -225,7 +229,7 @@ const App = () => {
       </nav>
 
       {/* ═══ Main Content ═══ */}
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-8 safe-bottom pb-20">
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-8 safe-bottom pb-20 scroll-momentum">
 
         {/* ─── Review View ─── */}
         {view === 'review' && draftRecord && (
@@ -349,12 +353,18 @@ const App = () => {
 
       {/* ═══ Settings Modal ═══ */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-md bg-[#0a0a0a] border border-[#1a1a1a] sm:rounded-2xl rounded-t-2xl overflow-hidden animate-slide-up shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in sheet-overlay" onClick={() => setShowSettings(false)}>
+          <div
+            className="w-full max-w-md bg-[#0a0a0a] border border-[#1a1a1a] sm:rounded-2xl rounded-t-2xl overflow-hidden animate-sheet-up shadow-2xl sheet-content"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={settingsSwipe.onTouchStart}
+            onTouchMove={settingsSwipe.onTouchMove}
+            onTouchEnd={settingsSwipe.onTouchEnd}
+          >
 
-            {/* Handle */}
+            {/* Drag handle */}
             <div className="flex justify-center pt-3 sm:hidden">
-              <div className="w-8 h-1 bg-[#333] rounded-full" />
+              <div className="w-10 h-1 bg-[#333] rounded-full" />
             </div>
 
             <div className="px-6 py-5 space-y-6">

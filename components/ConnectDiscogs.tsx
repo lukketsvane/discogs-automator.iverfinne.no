@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExternalLink, ArrowRight, CheckCircle2, X, Loader2, User, AlertCircle } from 'lucide-react';
 import { DiscogsProfile } from '../types';
+import { useSwipeDown } from '../hooks/useSwipe';
 
 interface ConnectDiscogsProps {
   onConnect: (token: string, profile: DiscogsProfile) => void;
@@ -13,6 +14,7 @@ const ConnectDiscogs: React.FC<ConnectDiscogsProps> = ({ onConnect, onSkip, onCl
   const [token, setToken] = useState('');
   const [profile, setProfile] = useState<DiscogsProfile | null>(null);
   const [error, setError] = useState('');
+  const swipe = useSwipeDown(onClose);
 
   const verifyToken = async () => {
     if (!token.trim()) return;
@@ -56,12 +58,18 @@ const ConnectDiscogs: React.FC<ConnectDiscogsProps> = ({ onConnect, onSkip, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-md bg-[#0a0a0a] border border-[#1a1a1a] sm:rounded-2xl rounded-t-2xl overflow-hidden animate-slide-up shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in sheet-overlay" onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-[#0a0a0a] border border-[#1a1a1a] sm:rounded-2xl rounded-t-2xl overflow-hidden animate-sheet-up shadow-2xl sheet-content"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={swipe.onTouchStart}
+        onTouchMove={swipe.onTouchMove}
+        onTouchEnd={swipe.onTouchEnd}
+      >
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-0">
-          <div className="w-8 h-1 bg-[#333] rounded-full mx-auto sm:hidden" />
+        {/* Drag handle */}
+        <div className="flex items-center justify-between px-5 pt-3 pb-0">
+          <div className="w-10 h-1 bg-[#333] rounded-full mx-auto sm:hidden" />
           <button
             onClick={onClose}
             className="absolute right-4 top-4 text-[#666] hover:text-white transition-colors p-1 hidden sm:block"
