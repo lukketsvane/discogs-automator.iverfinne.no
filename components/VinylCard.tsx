@@ -1,82 +1,104 @@
 import React from 'react';
-import { ExternalLink, Calendar, MapPin } from 'lucide-react';
-import { VinylRecord } from '../types';
+import { ExternalLink, Trash2, ChevronRight } from 'lucide-react';
+import { VinylRecord, DiscogsCollectionItem } from '../types';
+import { useSwipeAction } from '../hooks/useSwipe';
 
 interface VinylCardProps {
-  record: VinylRecord;
+  record?: VinylRecord;
+  discogsItem?: DiscogsCollectionItem;
+  onTap?: () => void;
+  onDelete?: () => void;
 }
 
-const VinylCard: React.FC<VinylCardProps> = ({ record }) => {
+const VinylCard: React.FC<VinylCardProps> = ({ record, discogsItem, onTap, onDelete }) => {
+  const swipe = useSwipeAction(onDelete);
+
+  // Normalize data from either source
+  const title = record?.title || discogsItem?.basic_information?.title || 'Unknown';
+  const artist = record?.artist || discogsItem?.basic_information?.artists?.map(a => a.name).join(', ') || 'Unknown';
+  const year = record?.year || (discogsItem?.basic_information?.year ? String(discogsItem.basic_information.year) : '');
+  const thumb = record?.images?.[0] || discogsItem?.basic_information?.thumb || discogsItem?.basic_information?.cover_image || '';
+  const format = record?.format || discogsItem?.basic_information?.formats?.map(f => f.name).join(', ') || '';
+  const label = record?.label || discogsItem?.basic_information?.labels?.[0]?.name || '';
+  const catno = record?.catalogNumber || discogsItem?.basic_information?.labels?.[0]?.catno || '';
+  const releaseId = record?.discogsReleaseId || discogsItem?.basic_information?.id;
+  const discogsUrl = record?.discogsUrl || (releaseId ? `https://www.discogs.com/release/${releaseId}` : '');
+
   return (
-    <div className="group bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#333] transition-all press-scale">
-      <div className="flex">
+    <div
+      className="swipe-card rounded-xl overflow-hidden"
+      onTouchStart={swipe.onTouchStart}
+      onTouchMove={swipe.onTouchMove}
+      onTouchEnd={swipe.onTouchEnd}
+    >
+      {/* Swipe action buttons behind the card */}
+      <div className="absolute inset-y-0 right-0 flex">
+        {discogsUrl && (
+          <a
+            href={discogsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-20 flex items-center justify-center bg-[#1a1a1a]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink size={18} className="text-blue-400" />
+          </a>
+        )}
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="w-20 flex items-center justify-center bg-red-600"
+          >
+            <Trash2 size={18} className="text-white" />
+          </button>
+        )}
+      </div>
 
-        {/* Image */}
-        <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 bg-black">
-          {record.images[0] && (
-            <img
-              src={record.images[0]}
-              alt={record.title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          )}
-          {record.images.length > 1 && (
-            <div className="absolute bottom-0.5 right-0.5 bg-black/80 px-1 py-0.5 rounded text-[9px] text-[#888] font-mono backdrop-blur-sm">
-              +{record.images.length - 1}
-            </div>
-          )}
-        </div>
-
-        {/* Details */}
-        <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
-          <div>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-white truncate">{record.title}</h3>
-                <p className="text-xs text-[#888] truncate">{record.artist}</p>
+      {/* Card content */}
+      <div
+        className="swipe-card-content bg-[#0a0a0a] border border-[#1a1a1a] relative z-10"
+        onClick={onTap}
+      >
+        <div className="flex items-center">
+          {/* Album art */}
+          <div className="relative w-16 h-16 shrink-0 bg-[#111]">
+            {thumb ? (
+              <img
+                src={thumb}
+                alt={title}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full border border-[#333]" />
               </div>
-              {record.estimatedPrice && record.estimatedPrice !== 'N/A' && (
-                <span className="text-xs font-mono text-[#888] shrink-0">{record.estimatedPrice}</span>
-              )}
-            </div>
+            )}
+          </div>
 
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {record.year && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#111] border border-[#1a1a1a] rounded text-[10px] text-[#666]">
-                  <Calendar size={9} /> {record.year}
-                </span>
+          {/* Info */}
+          <div className="flex-1 min-w-0 px-3 py-2.5">
+            <p className="text-[13px] font-semibold text-white truncate leading-tight">{title}</p>
+            <p className="text-[11px] text-[#888] truncate mt-0.5">{artist}</p>
+            <div className="flex items-center gap-1.5 mt-1">
+              {year && year !== '0' && (
+                <span className="text-[10px] text-[#555] font-mono">{year}</span>
               )}
-              {record.country && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#111] border border-[#1a1a1a] rounded text-[10px] text-[#666]">
-                  <MapPin size={9} /> {record.country}
-                </span>
+              {year && format && <span className="text-[10px] text-[#333]">&middot;</span>}
+              {format && (
+                <span className="text-[10px] text-[#555]">{format}</span>
               )}
-              {record.catalogNumber && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#111] border border-[#1a1a1a] rounded text-[10px] text-[#666] font-mono">
-                  {record.catalogNumber}
-                </span>
-              )}
-              {record.format && (
-                <span className="px-1.5 py-0.5 bg-[#111] border border-[#1a1a1a] rounded text-[10px] text-[#555]">
-                  {record.format}
-                </span>
+              {(year || format) && label && <span className="text-[10px] text-[#333]">&middot;</span>}
+              {label && (
+                <span className="text-[10px] text-[#555] truncate">{label}</span>
               )}
             </div>
           </div>
 
-          {record.discogsUrl && (
-            <div className="mt-2 pt-2 border-t border-[#111]">
-              <a
-                href={record.discogsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-[#555] hover:text-white flex items-center gap-1 transition-colors w-fit"
-              >
-                Discogs <ExternalLink size={9} />
-              </a>
-            </div>
-          )}
+          {/* Chevron */}
+          <div className="pr-3 shrink-0">
+            <ChevronRight size={14} className="text-[#333]" />
+          </div>
         </div>
       </div>
     </div>

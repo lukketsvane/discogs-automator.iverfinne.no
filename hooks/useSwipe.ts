@@ -49,7 +49,6 @@ export function useSwipeBack(onBack: () => void, threshold = 80): SwipeHandlers 
   const el = useRef<HTMLElement | null>(null);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    // Only trigger from left edge (first 30px)
     if (e.touches[0].clientX > 30) return;
     startX.current = e.touches[0].clientX;
     currentX.current = startX.current;
@@ -86,4 +85,78 @@ export function useSwipeBack(onBack: () => void, threshold = 80): SwipeHandlers 
   }, [onBack, threshold]);
 
   return { onTouchStart, onTouchMove, onTouchEnd };
+}
+
+// iOS-style swipe-to-reveal actions on list items
+export function useSwipeAction(onAction?: () => void) {
+  const startX = useRef(0);
+  const currentX = useRef(0);
+  const el = useRef<HTMLElement | null>(null);
+  const isSwiping = useRef(false);
+  const isOpen = useRef(false);
+  const ACTION_WIDTH = 80;
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    currentX.current = startX.current;
+    el.current = e.currentTarget.querySelector('.swipe-card-content') as HTMLElement;
+    if (el.current) {
+      el.current.classList.add('swiping');
+    }
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!el.current) return;
+    currentX.current = e.touches[0].clientX;
+    let dx = currentX.current - startX.current;
+
+    // If already open, offset from open position
+    if (isOpen.current) {
+      dx = dx - ACTION_WIDTH;
+    }
+
+    // Clamp: don't go right past origin, don't go left past ACTION_WIDTH * 1.5
+    dx = Math.max(-ACTION_WIDTH * 1.5, Math.min(0, dx));
+
+    if (dx < -5) {
+      isSwiping.current = true;
+      e.preventDefault();
+    }
+
+    el.current.style.transform = `translateX(${dx}px)`;
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    if (!el.current) return;
+    el.current.classList.remove('swiping');
+
+    const dx = currentX.current - startX.current;
+    const adjustedDx = isOpen.current ? dx - ACTION_WIDTH : dx;
+
+    if (adjustedDx < -ACTION_WIDTH * 1.2) {
+      // Swiped far enough for delete action
+      el.current.style.transform = `translateX(-100%)`;
+      if (onAction) setTimeout(onAction, 250);
+      isOpen.current = false;
+    } else if (adjustedDx < -(ACTION_WIDTH * 0.4)) {
+      // Open to reveal actions
+      el.current.style.transform = `translateX(-${ACTION_WIDTH}px)`;
+      isOpen.current = true;
+    } else {
+      // Snap back closed
+      el.current.style.transform = 'translateX(0)';
+      isOpen.current = false;
+    }
+
+    isSwiping.current = false;
+  }, [onAction]);
+
+  const close = useCallback(() => {
+    if (el.current) {
+      el.current.style.transform = 'translateX(0)';
+      isOpen.current = false;
+    }
+  }, []);
+
+  return { onTouchStart, onTouchMove, onTouchEnd, close };
 }
